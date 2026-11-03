@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 인상 동물상 테스트</title>
+    <!-- FontAwesome 아이콘 & Google Fonts -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- TensorFlow.js 및 Teachable Machine 라이브러리 -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 50%, #7dd3fc 100%);
+            --card-bg: rgba(255, 255, 255, 0.85);
+            --accent-blue: #0284c7;
+            --accent-sky: #38bdf8;
+            --text-main: #0f172a;
+            --text-sub: #475569;
+            --border-color: rgba(56, 189, 248, 0.2);
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .main-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid white;
+            border-radius: 28px;
+            width: 100%;
+            max-width: 900px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(14, 165, 233, 0.15);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(2, 132, 199, 0.1);
+            color: var(--accent-blue);
+            padding: 6px 16px;
+            border-radius: 100px;
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            border: 1px solid rgba(2, 132, 199, 0.15);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            margin-bottom: 8px;
+            color: #0369a1;
+        }
+
+        .header p {
+            color: var(--text-sub);
+            font-size: 15px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border-radius: 14px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(2, 132, 199, 0.4);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--accent-blue);
+            border: 1px solid rgba(2, 132, 199, 0.2);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .btn-secondary:hover {
+            background: #f0f9ff;
+            transform: translateY(-2px);
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            align-items: center;
+        }
+
+        @media (max-width: 768px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .viewport-box {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            background: #f8fafc;
+            border: 2px dashed #bae6fd;
+            border-radius: 20px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.02);
+        }
+
+        .placeholder-state {
+            text-align: center;
+            color: #94a3b8;
+        }
+
+        .placeholder-state i {
+            font-size: 48px;
+            margin-bottom: 12px;
+            color: #38bdf8;
+        }
+
+        #webcam-container canvas, #image-preview {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .results-card {
+            background: white;
+            border-radius: 20px;
+            padding: 24px;
+            border: 1px solid rgba(224, 242, 254, 1);
+            box-shadow: 0 10px 25px rgba(14, 165, 233, 0.08);
+        }
+
+        .results-header {
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--accent-blue);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .animal-item {
+            margin-bottom: 16px;
+        }
+
+        .animal-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .animal-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .animal-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            font-size: 16px;
+            color: #334155;
+        }
+
+        .animal-label i {
+            color: #0284c7;
+            width: 24px;
+            text-align: center;
+        }
+
+        .animal-percentage {
+            font-size: 15px;
+            font-weight: 800;
+            color: #0284c7;
+        }
+
+        .progress-bar-bg {
+            background: #f1f5f9;
+            height: 12px;
+            border-radius: 100px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #38bdf8, #0284c7);
+            width: 0%;
+            border-radius: 100px;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+
+<div class="main-card">
+    <div class="header">
+        <div class="badge"><i class="fa-solid fa-face-smile"></i> AI 관상 분석기</div>
+        <h1>나의 얼굴 동물상 찾기</h1>
+        <p>웹캠이나 사진 업로드를 통해 나의 얼굴이 어떤 동물상인지 확인해보세요!</p>
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-primary" onclick="startWebcam()">
+            <i class="fa-solid fa-camera"></i> 웹캠으로 측정
+        </button>
+        <label for="file-input" class="btn btn-secondary">
+            <i class="fa-solid fa-upload"></i> 사진 업로드
+        </label>
+        <input type="file" id="file-input" accept="image/*" onchange="handleFileUpload(event)">
+    </div>
+
+    <div class="content-grid">
+        <div class="viewport-box" id="viewport-box">
+            <div class="placeholder-state" id="placeholder-text">
+                <i class="fa-solid fa-user-circle"></i>
+                <p>웹캠 실행 또는 사진을 올려주세요</p>
+            </div>
+            <div id="webcam-container"></div>
+            <img id="image-preview" style="display:none;" />
+        </div>
+
+        <div class="results-card">
+            <div class="results-header">
+                <i class="fa-solid fa-chart-pie"></i> 분석 일치도 결과
+            </div>
+            <div id="label-container"></div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    // 현재 접속된 웹페이지의 위치를 기반으로 상대 경로 자동 생성
+    const URL = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
+
+    let model, webcam, labelContainer, maxPredictions;
+    let isWebcamRunning = false;
+
+    const animalIcons = {
+        'dog': 'fa-dog',
+        'cat': 'fa-cat',
+        'fox': 'fa-shield-cat',
+        'deer': 'fa-paw'
+    };
+
+    const animalNamesKo = {
+        'dog': '강아지상',
+        'cat': '고양이상',
+        'fox': '여우상',
+        'deer': '사슴상'
+    };
+
+    async function initModel() {
+        if (model) return;
+
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
+
+        try {
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+
+            labelContainer = document.getElementById("label-container");
+            labelContainer.innerHTML = "";
+
+            for (let i = 0; i < maxPredictions; i++) {
+                const rawClassName = model.getClassLabels()[i];
+                const lowerName = rawClassName.toLowerCase();
+                const displayName = animalNamesKo[lowerName] || rawClassName;
+                const iconClass = animalIcons[lowerName] || 'fa-paw';
+
+                const itemHTML = `
+                    <div class="animal-item">
+                        <div class="animal-info">
+                            <span class="animal-label">
+                                <i class="fa-solid ${iconClass}"></i> ${displayName}
+                            </span>
+                            <span class="animal-percentage" id="percent-${i}">0.0%</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" id="bar-inner-${i}"></div>
+                        </div>
+                    </div>
+                `;
+                labelContainer.innerHTML += itemHTML;
+            }
+        } catch (e) {
+            console.error("모델 로드 실패 상세 원인:", e);
+            alert("모델 파일(model.json, metadata.json, weights.bin)을 읽지 못했습니다.\nGitHub에 3개 파일이 index.html과 같은 위치에 업로드되어 있는지 확인해주세요.");
+        }
+    }
+
+    async function startWebcam() {
+        await initModel();
+        if (!model) return;
+
+        if (isWebcamRunning) return;
+        isWebcamRunning = true;
+
+        document.getElementById("placeholder-text").style.display = "none";
+        document.getElementById("image-preview").style.display = "none";
+
+        const flip = true;
+        webcam = new tmImage.Webcam(350, 350, flip);
+        await webcam.setup();
+        await webcam.play();
+        window.requestAnimationFrame(loop);
+
+        const webcamContainer = document.getElementById("webcam-container");
+        webcamContainer.innerHTML = "";
+        webcamContainer.appendChild(webcam.canvas);
+    }
+
+    async function loop() {
+        if (isWebcamRunning) {
+            webcam.update();
+            await predict(webcam.canvas);
+            window.requestAnimationFrame(loop);
+        }
+    }
+
+    async function handleFileUpload(event) {
+        await initModel();
+        if (!model) return;
+
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (isWebcamRunning && webcam) {
+            webcam.stop();
+            isWebcamRunning = false;
+            document.getElementById("webcam-container").innerHTML = "";
+        }
+
+        const imgElement = document.getElementById("image-preview");
+        document.getElementById("placeholder-text").style.display = "none";
+        imgElement.style.display = "block";
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            imgElement.src = e.target.result;
+            imgElement.onload = async function () {
+                await predict(imgElement);
+            };
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function predict(imageSource) {
+        if (!model) return;
+        const prediction = await model.predict(imageSource);
+        for (let i = 0; i < maxPredictions; i++) {
+            const probability = (prediction[i].probability * 100).toFixed(1);
+            document.getElementById(`bar-inner-${i}`).style.width = probability + "%";
+            document.getElementById(`percent-${i}`).innerText = probability + "%";
+        }
+    }
+
+    // 페이지 로드 시 바로 모델 로딩 시도
+    window.addEventListener('DOMContentLoaded', initModel);
+</script>
+
+</body>
+</html>
